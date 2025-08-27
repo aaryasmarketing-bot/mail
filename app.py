@@ -15,7 +15,8 @@ def init_db():
             email TEXT NOT NULL,
             company TEXT,
             service TEXT,
-            message TEXT
+            message TEXT,
+            paid INTEGER DEFAULT 0
         )
     ''')
     conn.commit()
@@ -26,6 +27,7 @@ init_db()
 @app.route('/', methods=['GET', 'POST'])
 def home():
     if request.method == 'POST':
+        # Free trial submission
         name = request.form['name']
         email = request.form['email']
         company = request.form['company']
@@ -34,8 +36,8 @@ def home():
 
         conn = sqlite3.connect('database.db')
         c = conn.cursor()
-        c.execute('INSERT INTO clients (name, email, company, service, message) VALUES (?, ?, ?, ?, ?)',
-                  (name, email, company, service, message))
+        c.execute('INSERT INTO clients (name, email, company, service, message, paid) VALUES (?, ?, ?, ?, ?, ?)',
+                  (name, email, company, service, message, 0))
         conn.commit()
         conn.close()
 
@@ -68,39 +70,42 @@ def home():
     return render_template('index.html', services=services, advantages=advantages,
                            how_it_works=how_it_works, testimonials=testimonials)
 
+# Route for PayPal to notify payment completion
+@app.route('/paypal_capture', methods=['POST'])
+def paypal_capture():
+    data = request.json
+    # Expected keys: name, email, company, service
+    name = data.get('name')
+    email = data.get('email')
+    company = data.get('company', '')
+    service = data.get('service', '')
+    
+    if not name or not email or not service:
+        return jsonify({'status': 'error', 'message': 'Missing required fields'}), 400
+
+    conn = sqlite3.connect('database.db')
+    c = conn.cursor()
+    c.execute('INSERT INTO clients (name, email, company, service, paid) VALUES (?, ?, ?, ?, ?)',
+              (name, email, company, service, 1))
+    conn.commit()
+    conn.close()
+    
+    return jsonify({'status': 'success'})
+
 @app.route('/thankyou')
 def thankyou():
     return render_template('thankyou.html')
 
-# PayPal logging endpoint
-@app.route('/paypal-success', methods=['POST'])
-def paypal_success():
-    data = request.json
-    email = data.get("email")
-    services = data.get("services")  # list of services
-    name = data.get("name", "Paid Client")
-    company = data.get("company", "")
-
-    if not email or not services:
-        return jsonify({"status": "error", "message": "Missing email or services"}), 400
-
-    conn = sqlite3.connect('database.db')
-    c = conn.cursor()
-    for service in services:
-        c.execute('INSERT INTO clients (name, email, company, service, message) VALUES (?, ?, ?, ?, ?)',
-                  (name, email, company, service, "Paid via PayPal"))
-    conn.commit()
-    conn.close()
-    return jsonify({"status": "success"})
-
 @app.route('/success')
 def success():
-    return render_template('thankyou.html')
+    return render_template('success.html')
 
 @app.route('/cancel')
 def cancel():
-    return render_template('thankyou.html')  # Can create separate cancel page if desired
+    return render_template('cancel.html')
+
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port)
+
