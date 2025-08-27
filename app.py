@@ -76,7 +76,7 @@ def paypal_capture():
     name = data.get('name')
     email = data.get('email')
     company = data.get('company', '')
-    services = data.get('services', [])  # list of selected services
+    services = data.get('services', [])
 
     if not name or not email or not services:
         return jsonify({'status': 'error', 'message': 'Missing required fields'}), 400
