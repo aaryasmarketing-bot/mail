@@ -27,7 +27,7 @@ init_db()
 @app.route('/', methods=['GET', 'POST'])
 def home():
     if request.method == 'POST':
-        # Free trial submission
+        # Free trial submission (single service)
         name = request.form['name']
         email = request.form['email']
         company = request.form['company']
@@ -70,7 +70,6 @@ def home():
     return render_template('index.html', services=services, advantages=advantages,
                            how_it_works=how_it_works, testimonials=testimonials)
 
-# PayPal capture endpoint
 @app.route('/paypal_capture', methods=['POST'])
 def paypal_capture():
     data = request.json
