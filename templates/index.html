@@ -8,16 +8,14 @@
 </head>
 <body>
 
-<!-- Hero Section -->
 <header class="text-center py-5 bg-primary text-white">
     <div class="container">
         <h1 class="display-4 fw-bold">Aarya Shrivastav</h1>
-        <p class="lead mt-3">Helping Businesses Grow Revenue & Engage Customers with Professional Email Campaigns</p>
+        <p class="lead mt-3">Helping Small Businesses Grow Revenue & Engage Customers with Professional Email Campaigns</p>
         <a href="#free-trial" class="btn btn-light btn-lg mt-4">Book Your Free Trial</a>
     </div>
 </header>
 
-<!-- Advantages Section -->
 <section class="container py-5">
     <h2 class="text-center mb-4">Why Hire Me?</h2>
     <div class="row text-center">
@@ -31,7 +29,6 @@
     </div>
 </section>
 
-<!-- Services Section -->
 <section class="bg-light py-5">
     <div class="container">
         <h2 class="text-center mb-4">Services I Offer</h2>
@@ -47,7 +44,6 @@
     </div>
 </section>
 
-<!-- How It Works Section -->
 <section class="container py-5">
     <h2 class="text-center mb-4">How It Works</h2>
     <ol class="fs-5">
@@ -57,7 +53,6 @@
     </ol>
 </section>
 
-<!-- Testimonials Section -->
 <section class="bg-light py-5">
     <div class="container">
         <h2 class="text-center mb-4">Testimonials</h2>
@@ -74,85 +69,74 @@
     </div>
 </section>
 
-<!-- Free Trial Signup & PayPal Payment Section -->
 <section id="free-trial" class="container py-5">
-    <h2 class="text-center mb-4">Free Trial Signup / Pay for Service</h2>
+    <h2 class="text-center mb-4">Free Trial / Pay for Services</h2>
     <form id="trialForm" class="mx-auto p-4 bg-white rounded shadow-sm" style="max-width: 500px;">
         <input type="text" name="name" placeholder="Your Name" required class="form-control mb-2">
         <input type="email" name="email" placeholder="Your Email" required class="form-control mb-2">
         <input type="text" name="company" placeholder="Company Name" class="form-control mb-2">
 
-        <!-- Service Selection -->
-        <select id="serviceSelect" name="service" required class="form-select mb-2">
-            <option value="">Select One Service</option>
+        <!-- Multi-service checkboxes -->
+        <div class="mb-2">
+            <label class="form-label">Select Services to Pay For:</label>
             {% for service in services %}
-            <option value="{{ service }}">{{ service }}</option>
+            <div class="form-check">
+                <input class="form-check-input" type="checkbox" name="services" value="{{ service }}" id="{{ service }}">
+                <label class="form-check-label" for="{{ service }}">{{ service }}</label>
+            </div>
             {% endfor %}
-        </select>
+        </div>
 
         <textarea name="message" placeholder="Additional Message" class="form-control mb-2"></textarea>
 
-        <!-- Submit for Free Trial -->
         <button type="submit" class="btn btn-primary w-100 mb-2">Submit Free Trial</button>
     </form>
 
-    <!-- PayPal Button -->
     <div id="paypal-button-container" class="mx-auto" style="max-width: 400px;"></div>
 </section>
 
-<!-- Footer -->
 <footer class="text-center py-3 bg-dark text-white">
     <p>Contact: aarya.s.marketing@gmail.com | GDPR & CAN-SPAM Compliant</p>
 </footer>
 
-<!-- PayPal SDK -->
 <script src="https://www.paypal.com/sdk/js?client-id=AanMSH3eQAaNbb-U2_YCv4ZAjjIBWx7RfsDcv5MpqlhavFGSFzfUxgkxhMdEYzck5Vz4dLbIUCp9qWvU&currency=USD"></script>
-
 <script>
-// PayPal button
 paypal.Buttons({
     createOrder: function(data, actions) {
-        let service = document.getElementById('serviceSelect').value;
-        if (!service) {
-            alert("Please select a service before paying.");
+        const selected = Array.from(document.querySelectorAll('input[name="services"]:checked')).map(el => el.value);
+        if(selected.length === 0) {
+            alert("Please select at least one service to pay.");
             return;
         }
 
-        // Amounts per service
-        let amount = 10.00;
-        if(service === "Email Campaign Creation") amount = 20.00;
-        if(service === "Welcome/Onboarding Sequences") amount = 25.00;
-        if(service === "Newsletters & Automation") amount = 30.00;
-        if(service === "Analytics & Reporting") amount = 15.00;
+        const servicePrices = {
+            "Email Campaign Creation": 20.00,
+            "Welcome/Onboarding Sequences": 25.00,
+            "Newsletters & Automation": 30.00,
+            "Analytics & Reporting": 15.00
+        };
+
+        const total = selected.reduce((sum, s) => sum + (servicePrices[s] || 0), 0);
 
         return actions.order.create({
             purchase_units: [{
-                amount: { value: amount.toFixed(2) }
+                amount: { value: total.toFixed(2) }
             }]
         });
     },
     onApprove: function(data, actions) {
         return actions.order.capture().then(function(details) {
-            // Send client info to backend
             const name = document.querySelector('input[name="name"]').value;
             const email = document.querySelector('input[name="email"]').value;
             const company = document.querySelector('input[name="company"]').value;
-            const service = document.querySelector('select[name="service"]').value;
+            const selected = Array.from(document.querySelectorAll('input[name="services"]:checked')).map(el => el.value);
 
             fetch('/paypal_capture', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({name, email, company, service})
+                body: JSON.stringify({name, email, company, services: selected})
             }).then(() => {
                 window.location.href = "/success";
             });
         });
     },
-    onCancel: function(data) {
-        window.location.href = "/cancel";
-    }
-}).render('#paypal-button-container');
-</script>
-
-</body>
-</html>
