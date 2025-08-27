@@ -70,26 +70,26 @@ def home():
     return render_template('index.html', services=services, advantages=advantages,
                            how_it_works=how_it_works, testimonials=testimonials)
 
-# Route for PayPal to notify payment completion
+# PayPal capture endpoint
 @app.route('/paypal_capture', methods=['POST'])
 def paypal_capture():
     data = request.json
-    # Expected keys: name, email, company, service
     name = data.get('name')
     email = data.get('email')
     company = data.get('company', '')
-    service = data.get('service', '')
-    
-    if not name or not email or not service:
+    services = data.get('services', [])  # list of selected services
+
+    if not name or not email or not services:
         return jsonify({'status': 'error', 'message': 'Missing required fields'}), 400
 
     conn = sqlite3.connect('database.db')
     c = conn.cursor()
-    c.execute('INSERT INTO clients (name, email, company, service, paid) VALUES (?, ?, ?, ?, ?)',
-              (name, email, company, service, 1))
+    for service in services:
+        c.execute('INSERT INTO clients (name, email, company, service, paid) VALUES (?, ?, ?, ?, ?)',
+                  (name, email, company, service, 1))
     conn.commit()
     conn.close()
-    
+
     return jsonify({'status': 'success'})
 
 @app.route('/thankyou')
@@ -108,4 +108,3 @@ def cancel():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port)
-
