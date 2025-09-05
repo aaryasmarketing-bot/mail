@@ -11,7 +11,7 @@
 <header class="text-center py-5 bg-primary text-white">
     <div class="container">
         <h1 class="display-4 fw-bold">Aarya Shrivastav</h1>
-        <p class="lead mt-3">Helping Businesses Grow Revenue & Engage Customers with Professional Email Campaigns</p>
+        <p class="lead mt-3">Helping Small Businesses Grow Revenue & Engage Customers with Professional Email Campaigns</p>
         <a href="#free-trial" class="btn btn-light btn-lg mt-4">Book Your Free Trial</a>
     </div>
 </header>
@@ -101,8 +101,8 @@
             <label class="form-label">Select Services to Pay For:</label>
             {% for service in services %}
             <div class="form-check">
-                <input class="form-check-input" type="checkbox" name="pay_services" value="{{ service }}" id="pay_{{ service }}">
-                <label class="form-check-label" for="pay_{{ service }}">{{ service }}</label>
+                <input class="form-check-input" type="checkbox" name="pay_services" value="{{ service }}" id="pay_{{ loop.index }}">
+                <label class="form-check-label" for="pay_{{ loop.index }}">{{ service }}</label>
             </div>
             {% endfor %}
         </div>
@@ -115,6 +115,7 @@
     <p>Contact: aarya.s.marketing@gmail.com | GDPR & CAN-SPAM Compliant</p>
 </footer>
 
+<!-- PayPal SDK (sandbox client ID you gave earlier) -->
 <script src="https://www.paypal.com/sdk/js?client-id=AanMSH3eQAaNbb-U2_YCv4ZAjjIBWx7RfsDcv5MpqlhavFGSFzfUxgkxhMdEYzck5Vz4dLbIUCp9qWvU&currency=USD"></script>
 <script>
 const servicePrices = {
@@ -127,25 +128,45 @@ const servicePrices = {
 paypal.Buttons({
     createOrder: function(data, actions) {
         const selected = Array.from(document.querySelectorAll('input[name="pay_services"]:checked')).map(el => el.value);
-        if(selected.length === 0) { alert("Please select at least one service."); return; }
+        const name = document.getElementById('pay_name').value.trim();
+        const email = document.getElementById('pay_email').value.trim();
+
+        if (!name || !email) {
+            alert("Please enter your name and email before paying.");
+            return;
+        }
+        if (selected.length === 0) {
+            alert("Please select at least one service to pay.");
+            return;
+        }
+
         const total = selected.reduce((sum, s) => sum + (servicePrices[s] || 0), 0);
-        return actions.order.create({ purchase_units:[{amount:{value:total.toFixed(2)}}] });
+        return actions.order.create({
+            purchase_units: [{
+                amount: { value: total.toFixed(2) }
+            }]
+        });
     },
     onApprove: function(data, actions) {
         return actions.order.capture().then(function(details) {
-            const name = document.getElementById('pay_name').value;
-            const email = document.getElementById('pay_email').value;
-            const company = document.getElementById('pay_company').value;
+            const name = document.getElementById('pay_name').value.trim();
+            const email = document.getElementById('pay_email').value.trim();
+            const company = document.getElementById('pay_company').value.trim();
             const selected = Array.from(document.querySelectorAll('input[name="pay_services"]:checked')).map(el => el.value);
+
             fetch('/paypal_capture', {
                 method: 'POST',
-                headers:{'Content-Type':'application/json'},
-                body: JSON.stringify({name,email,company,services:selected})
-            }).then(() => { window.location.href="/success"; });
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({name, email, company, services: selected})
+            }).then(() => {
+                window.location.href = "/success";
+            }).catch(() => {
+                window.location.href = "/success";
+            });
         });
     },
     onCancel: function(data) {
-        window.location.href="/cancel";
+        window.location.href = "/cancel";
     }
 }).render('#paypal-button-container');
 </script>
