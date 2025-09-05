@@ -1,8 +1,18 @@
 import os
-from flask import Flask, render_template, request, redirect, jsonify
+from flask import Flask, render_template, request, redirect, jsonify, Response
 import sqlite3
+import io, csv
 
 app = Flask(__name__)
+
+# Admin credentials (change these in Render environment variables for security)
+ADMIN_USER = os.environ.get("ADMIN_USER", "admin")
+ADMIN_PASS = os.environ.get("ADMIN_PASS", "adminpass")
+
+def check_auth(auth):
+    if not auth:
+        return False
+    return auth.username == ADMIN_USER and auth.password == ADMIN_PASS
 
 # Initialize database
 def init_db():
@@ -28,11 +38,14 @@ init_db()
 def home():
     if request.method == 'POST':
         # Free trial submission (single service)
-        name = request.form['name']
-        email = request.form['email']
-        company = request.form['company']
-        service = request.form['service']
-        message = request.form['message']
+        name = request.form.get('name','').strip()
+        email = request.form.get('email','').strip()
+        company = request.form.get('company','').strip()
+        service = request.form.get('service','').strip()
+        message = request.form.get('message','').strip()
+
+        if not name or not email or not service:
+            return redirect('/?error=missing')
 
         conn = sqlite3.connect('database.db')
         c = conn.cursor()
@@ -43,7 +56,6 @@ def home():
 
         return redirect('/thankyou')
 
-    # Data for sections
     services = [
         "Email Campaign Creation",
         "Welcome/Onboarding Sequences",
@@ -73,9 +85,9 @@ def home():
 @app.route('/paypal_capture', methods=['POST'])
 def paypal_capture():
     data = request.json
-    name = data.get('name')
-    email = data.get('email')
-    company = data.get('company', '')
+    name = data.get('name','').strip()
+    email = data.get('email','').strip()
+    company = data.get('company','').strip()
     services = data.get('services', [])
 
     if not name or not email or not services:
@@ -103,6 +115,40 @@ def success():
 def cancel():
     return render_template('cancel.html')
 
+
+# Admin: View signups in browser (protected by Basic Auth)
+@app.route('/admin/signups')
+def admin_signups():
+    auth = request.authorization
+    if not check_auth(auth):
+        return Response('Login required', 401, {'WWW-Authenticate': 'Basic realm="Signups"'})
+
+    conn = sqlite3.connect('database.db')
+    c = conn.cursor()
+    c.execute('SELECT id, name, email, company, service, message, paid FROM clients ORDER BY id DESC')
+    rows = c.fetchall()
+    conn.close()
+    return render_template('signups.html', signups=rows)
+
+# Admin: Download CSV (protected)
+@app.route('/admin/signups.csv')
+def admin_signups_csv():
+    auth = request.authorization
+    if not check_auth(auth):
+        return Response('Login required', 401, {'WWW-Authenticate': 'Basic realm="Signups"'})
+
+    conn = sqlite3.connect('database.db')
+    c = conn.cursor()
+    c.execute('SELECT id, name, email, company, service, message, paid FROM clients ORDER BY id DESC')
+    rows = c.fetchall()
+    conn.close()
+
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(['id','name','email','company','service','message','paid'])
+    writer.writerows(rows)
+    csv_data = output.getvalue()
+    return Response(csv_data, mimetype='text/csv', headers={'Content-Disposition':'attachment; filename=signups.csv'})
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
